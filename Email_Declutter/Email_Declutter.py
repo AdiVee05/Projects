@@ -73,8 +73,8 @@ if path == 1:
         
         # Range
         print("How long ago would you want the old emails to range?")
-        start_date = input("Start Date - (MM/DD/YYYY)\n")
-        end_date = input("End Date - (MM/DD/YYYY)\n")
+        start_date = input("Start Date - MM/DD/YYYY\n")
+        end_date = input("End Date - MM/DD/YYYY\n")
         
         # Selected range 
         print(f"You have the selected the start date [{start_date}] & end date of [{end_date}].")
@@ -100,22 +100,81 @@ if path == 1:
                 print("Couldn't search emails in the given range.")
 
             # Ask for keywords to protect important emails
-            print("\nTo avoid deleting anything important, let's look for keywords to keep.")
-            print("Examples: 'invoice', 'receipt', 'project', 'grades', etc.")
-            
-            while True:
-                keywords = input("Enter keywords to protect (comma-separated) (Type 'stop' when you're done):\n").lower()
+            # Ask for keywords that indicate spam or unwanted emails
+            print("\nLet's choose keywords that mark unwanted emails you'd like to delete.")
+            print("Examples: 'sale', 'unsubscribe', 'limited offer', 'promo', etc.")
 
-                if keywords.strip() == "stop":
+            keywords = set()
+            while True:
+                entry = input("Enter keywords to delete (comma-separated) (Type 'stop' when you're done):\n").lower()
+
+                if entry.strip() == "stop":
                     break
                 
                 # Split input by commas, strip whitespace, and add to the list
-                new_keywords = [k.strip() for k in keywords.split(',') if k.strip()]
-                keywords.extend(new_keywords)
+                new_keywords = {k.strip() for k in entry.split(',') if k.strip()}
+                keywords.update(new_keywords)
 
-            print(f"\nEmails containing these keywords will be excluded: {keywords}")
+            print(f"\nEmails containing these keywords will be deleted: {keywords}")
 
+        # Checks for emails that don't have keywords 
+        # Confirm before deletion
+        proceed = input("\nProceed to check and delete emails that do contain these keywords? Y or N:\n")
+        if proceed.lower() != 'y':
+            print("Operation cancelled.")
+        else:
+            to_delete = []  # List to store (email_id, subject, sender)
 
+            for email_id in filtered_ids:
+                status, data = mail.fetch(email_id, "(RFC822)")
+                if status != "OK":
+                    continue
+
+                raw_email = data[0][1]
+                msg = email.message_from_bytes(raw_email)
+
+                subject = msg["Subject"]
+                subject = subject.lower() if subject else "(no subject)"
+
+                sender = msg["From"]
+                sender = sender if sender else "(unknown sender)"
+
+                body = ""
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/plain":
+                            try:
+                                body += part.get_payload(decode=True).decode().lower()
+                            except:
+                                continue
+                else:
+                    try:
+                        body = msg.get_payload(decode=True).decode().lower()
+                    except:
+                        pass
+
+                combined_text = subject + " " + body
+
+                if any(keyword in combined_text for keyword in keywords):
+                    date = msg["Date"] or "(unknown date)"
+                    to_delete.append((email_id, subject, sender, date))
+
+            # Show emails to be deleted
+            if not to_delete:
+                print("\nNo emails matched your delete keywords.")
+            else:
+                print(f"\nThe following {len(to_delete)} emails matched your keywords and are set to be deleted:\n")
+                for i, (eid, subj, frm, dt) in enumerate(to_delete, start=1):
+                    print(f"{i}. From: {frm}\n   Subject: {subj}\n   Date: {dt}\n")
+
+                confirm = input("Are you sure you want to delete these emails? Y or N: ").lower()
+                if confirm == "y":
+                    for eid, _, _ in to_delete:
+                        mail.store(eid, '+FLAGS', '\\Deleted')
+                    mail.expunge()
+                    print(f"\n✅ Deleted {len(to_delete)} emails.")
+                else:
+                    print("\n❌ Deletion cancelled. No emails were removed.")
 
     else:
         print("Let's move on then.")            
