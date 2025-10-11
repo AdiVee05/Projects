@@ -179,7 +179,139 @@ if path == 1:
     else:
         print("Let's move on then.")            
                 
+#################################################
+####
+#### 2 - Sort/Organize by sender/subject 
+####
+#################################################                
                 
-                
-                
-                 
+if path == 2:  # Sorting/Organizing path
+    print("That's great!\n") 
+    print("Would you like to organize by Sender or Subject?\nSender = 1, Subject = 2")
+    choice = input("Enter your choice (1 or 2): ")
+
+    if choice == "1":
+        print("Organizing by Sender...\n")
+
+        status, messages = mail.search(None, "ALL")
+        if status != "OK":
+            print("Failed to fetch emails.")
+        
+        email_ids = messages[0].split()
+        sender_groups = {}
+
+        for id in email_ids:
+            status, data = mail.fetch(id, "(RFC822)")
+            if status == "OK":
+                print("Successful")
+                continue
+            else:
+                print("Unsuccessful")
+            
+            msg = email.message_from_bytes(data[0][1])
+            sender = msg["From"] or "(Unknown Sender)"
+            subject = msg["Subject"] or "(No Subject)"
+            sender_groups.setdefault(sender, []).append(subject)    
+    
+        print("\n📂 Emails grouped by Sender:")
+        for sender, subjects in sender_groups.items():
+            print(f"\n{sender} ({len(subjects)} emails)")
+            for subj in subjects[:3]:  # only show first 3 subjects for preview
+                print(f"  - {subj}")
+        
+        choice_2 = input("Would You like to delete these sender, Y or N")
+
+        if choice_2 == "Y":
+            sender_to_delete = input("Enter the exact sender email you want to delete (copy/paste from above): ").strip()
+
+            to_delete = []  # store IDs of emails to delete
+            for e in email_ids:
+                status, data = mail.fetch(e, "(RFC822)")
+                if status != "OK":
+                    print("Status is OK")
+                    continue
+                msg = email.message_from_bytes(data[0][1])
+                sender = msg["From"] or "(Unknown Sender)"
+
+                if sender_to_delete.lower() in sender.lower():
+                    to_delete.append(e)
+
+            print(f"\nFound {len(to_delete)} emails from {sender_to_delete}.")
+
+            confirm = input("Are you sure you want to delete these emails? (Y or N): ").strip().upper()
+            if confirm == "Y":
+                for eid in to_delete:
+                    mail.store(eid, '+FLAGS', '\\Deleted')
+                mail.expunge()
+                print(f"Deleted {len(to_delete)} emails from {sender_to_delete}")
+            else:
+                print("Deletion canceled")
+        else:
+            print("\nOkay, no deletions performed.")
+
+    if choice == "2":
+        print("Organizing by Subject.\n")
+
+        status, messages = mail.search(None, "ALL")
+        if status != "OK":
+            print("Failed to fetch emails")
+        
+        email_ids = messages[0].split()
+        subject_groups = {}
+
+        for id in email_ids:
+            status, data = mail.fetch(id, "(RFC822)")
+            if status == "Ok":
+                print("Successful")
+                continue
+            else:
+                print("Unsuccessful")
+            
+            msg = email.message_from_bytes(data[0][1])
+            subject = msg["Subject"] or "(No Subject)"
+            sender = msg["From"] or "(Unknown Sender)"
+            subject_groups.setdefault(subject, []).append(sender)    
+        
+            print("Emails grouped by Subject:")
+            for subject, senders in subject_groups.items():
+                print(f"\n{subject} ({len(senders)} emails)")
+                for s in senders[:3]:  # only show first 3 senders for preview
+                    print(f"  - {s}")
+            
+            choice_2 = input("Would You like to delete these subjects, Y or N")
+
+            if choice_2 == "Y":
+                subject_to_delete = input("Enter the exact subject you want to delete (copy/paste from above): ").strip()
+
+                to_delete = []  # store IDs of emails to delete
+                for e in email_ids:
+                    status, data = mail.fetch(e, "(RFC822)")
+                    if status != "OK":
+                        print("Status is OK")
+                        continue
+                    msg = email.message_from_bytes(data[0][1])
+                    subject = msg["Subject"] or "(No Subject)"
+
+                    if subject_to_delete.lower() in subject.lower():
+                        to_delete.append(e)
+
+                print(f"\nFound {len(to_delete)} emails with subject '{subject_to_delete}'.")
+
+                confirm = input("Are you sure you want to delete these emails? (Y or N): ").strip().upper()
+                if confirm == "Y":
+                    for eid in to_delete:
+                        mail.store(eid, '+FLAGS', '\\Deleted')
+                    mail.expunge()
+                    print(f"Deleted {len(to_delete)} emails with subject '{subject_to_delete}'.")
+                else:
+                    print("Deletion canceled")
+            else:
+                print("\nOkay, no deletions performed.")
+    else:
+        print("Invalid")
+
+#################################################
+####
+#### 2 - Sort/Organize by sender/subject 
+####
+#################################################     
