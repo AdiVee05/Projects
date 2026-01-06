@@ -312,6 +312,102 @@ if path == 2:  # Sorting/Organizing path
 
 #################################################
 ####
-#### 2 - Sort/Organize by sender/subject 
+#### 4 - Generate Inbox Summary 
 ####
 #################################################     
+
+if path == 4:
+    print("Inbox Summary")
+
+    status, messages = mail.search(None, "ALL")
+    if status != "OK":
+        print("Could not get emails")
+    else:
+        email_ids = messages[0].split()
+        print(f"Total emails: {len(email_ids)}\n")
+
+        senders = {}
+        subjects = []
+
+        # Go through each email
+        for eid in email_ids:
+            status, data = mail.fetch(eid, "(RFC822)")
+            if status != "OK":
+                continue
+
+            msg = email.message_from_bytes(data[0][1])
+            sender = msg["From"] or "(Unknown Sender)"
+            subject = msg["Subject"] or "(No Subject)"
+
+            # Count how many times each sender appears
+            senders[sender] = senders.get(sender, 0) + 1
+            subjects.append(subject)
+
+        # --- Print summary ---
+        print("📬 Inbox Summary:")
+        print(f"Total emails: {len(email_ids)}")
+
+        # Top 3 most frequent senders
+        print("\nTop 3 Senders:")
+        sorted_senders = sorted(senders.items(), key=lambda x: x[1], reverse=True)
+        for sender, count in sorted_senders[:3]:
+            print(f"  - {sender}: {count} emails")
+
+        # Print first 5 subjects as a preview
+        print("\nExample Subjects:")
+        for subj in subjects[:5]:
+            print(f"  - {subj}")
+
+        print("Inbox summary complete!")
+
+#################################################
+####
+#### 3 - Intensive Decluttering (remove duplicates, unsubscribe)
+####
+#################################################
+
+if path == 3:
+    print("Intensive Decluttering")
+
+    status, messages = mail.search(None, "ALL")
+    if status != "OK":
+        print("Could not get emails.")
+    else:
+        email_ids = messages[0].split()
+        seen_subjects = set()   # to track duplicates
+        to_delete = [] # emails to delete
+        unsubscribe_keywords = ['unsubscribe', 'newsletter', 'promo', 'sale']
+
+        for eid in email_ids:
+            status, data = mail.fetch(eid, "(RFC822)")
+            if status != "OK":
+                continue
+
+            msg = email.message_from_bytes(data[0][1])
+            subject = msg["Subject"] or "(No Subject)"
+            sender = msg["From"] or "(Unknown Sender)"
+
+            # Simple check for duplicates
+            if subject.lower() in seen_subjects:
+                to_delete.append(eid)
+            else:
+                seen_subjects.add(subject.lower())
+
+            # Simple check for unsubscribe keywords in subject
+            for word in unsubscribe_keywords:
+                if word in subject.lower():
+                    to_delete.append(eid)
+                    break  # no need to check more words
+
+        # Show what will be deleted
+        print(f"Found {len(to_delete)} emails that are duplicates or likely unsubscribe/promotions.")
+
+        confirm = input("Do you want to delete them all? (Y or N): ").strip().upper()
+        if confirm == "Y":
+            for eid in to_delete:
+                mail.store(eid, '+FLAGS', '\\Deleted')
+            mail.expunge()
+            print(f"Deleted {len(to_delete)} emails")
+        else:
+            print("Deletion cancelled")
+
